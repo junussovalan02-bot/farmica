@@ -203,13 +203,14 @@ func step(dt: float) -> void:
 				s.target = null
 				s.state = "idle"
 			else:
+				# Идём к ближайшей точке вражеского строя: так работает заход во фланг и в тыл
 				var t := s.target
-				var d := s.pos.distance_to(t.pos)
-				if d > ENGAGE + 0.2:
-					goal = t.pos
+				var edge := t.closest_point(s.pos)
+				if s.pos.distance_to(edge) > ENGAGE + 0.2:
+					goal = edge
 				else:
 					s.state = "fighting"
-				s.ang = lerp_angle(s.ang, atan2(t.pos.z - s.pos.z, t.pos.x - s.pos.x), minf(1.0, dt * 3.0))
+					s.ang = lerp_angle(s.ang, atan2(edge.z - s.pos.z, edge.x - s.pos.x), minf(1.0, dt * 3.0))
 		elif s.move_to != null:
 			if s.pos.distance_to(s.move_to) < 0.3:
 				s.move_to = null
@@ -239,13 +240,18 @@ func step(dt: float) -> void:
 			var b := squads[j]
 			if not a.is_alive() or not b.is_alive():
 				continue
-			var d := a.pos.distance_to(b.pos)
-			var mn := (a.cols() + b.cols()) * Squad.SP * 0.35 if a.side == b.side else ENGAGE + 0.2
-			if d < mn and d > 0.0:
-				var push := (mn - d) / 2.0
-				var dir := (a.pos - b.pos) / d
-				a.pos += dir * push
-				b.pos -= dir * push
+			if a.side == b.side:
+				var d := a.pos.distance_to(b.pos)
+				var mn := (a.cols() + b.cols()) * Squad.SP * 0.35
+				if d < mn and d > 0.0:
+					var push := (mn - d) / 2.0
+					var dir := (a.pos - b.pos) / d
+					a.pos += dir * push
+					b.pos -= dir * push
+			else:
+				# Фронт одного отряда не заходит внутрь строя другого
+				_push_out(a, b)
+				_push_out(b, a)
 
 	# Бой
 	for a in squads:
@@ -254,7 +260,7 @@ func step(dt: float) -> void:
 		for b in squads:
 			if b.side == a.side or not b.is_alive():
 				continue
-			var d := a.pos.distance_to(b.pos)
+			var d := a.pos.distance_to(b.closest_point(a.pos))
 			var reach := ENGAGE + 0.6 + (1.4 if b.state == "fleeing" else 0.0)
 			if d > reach:
 				continue
@@ -266,7 +272,8 @@ func step(dt: float) -> void:
 			var front_n := mini(a.ants.size(), a.cols() * 2)
 			var dmg := front_n * ATTACK * dt * (2.2 if b.state == "fleeing" else 1.0)
 			# Откуда бьют: по фронту, во фланг или в тыл обороняющегося
-			var to_a := atan2(a.pos.z - b.pos.z, a.pos.x - b.pos.x)
+			var bc := b.block_center()
+			var to_a := atan2(a.pos.z - bc.z, a.pos.x - bc.x)
 			var rel := cos(to_a - b.ang)   # 1 фронт, -1 тыл
 			var flank := 3.0 if rel < -0.5 else (1.8 if rel < 0.4 else 1.0)
 			b.take_damage(dmg, flank)
@@ -318,6 +325,27 @@ func step(dt: float) -> void:
 				a_stand += 1
 	if (e_stand == 0 and e_any == 0) or (a_stand == 0 and a_any == 0) or (e_stand == 0 and a_stand > 0 and battle_time > 8.0 and e_any > 0 and e_all_broken):
 		_finish(a_stand > 0)
+
+
+## Выталкивает фронт отряда a из прямоугольника строя b до дистанции боя.
+func _push_out(a: Squad, b: Squad) -> void:
+	var edge := b.closest_point(a.pos)
+	var dv := a.pos - edge
+	var d := dv.length()
+	var c := b.block_center()
+	var inside := absf((a.pos - c).dot(b.forward())) < b.depth() / 2.0 and absf((a.pos - c).dot(b.right())) < b.cols() * Squad.SP / 2.0
+	if inside:
+		# Фронт внутри чужого строя: выводим к ближайшей стороне
+		var lf := (a.pos - c).dot(b.forward())
+		var lr := (a.pos - c).dot(b.right())
+		var gap_f := b.depth() / 2.0 - absf(lf)
+		var gap_r := b.cols() * Squad.SP / 2.0 - absf(lr)
+		if gap_f < gap_r:
+			a.pos += b.forward() * signf(lf if lf != 0.0 else 1.0) * (gap_f + ENGAGE)
+		else:
+			a.pos += b.right() * signf(lr if lr != 0.0 else 1.0) * (gap_r + ENGAGE)
+	elif d < ENGAGE and d > 0.0:
+		a.pos += dv / d * (ENGAGE - d)
 
 
 func _finish(win: bool) -> void:

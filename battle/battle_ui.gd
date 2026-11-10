@@ -191,6 +191,7 @@ func _button(text: String, cb: Callable) -> Button:
 func _bar(col: Color) -> ProgressBar:
 	var pb := ProgressBar.new()
 	pb.show_percentage = false
+	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pb.custom_minimum_size = Vector2(100, 5)
 	pb.max_value = 100
 	var bg := StyleBoxFlat.new()

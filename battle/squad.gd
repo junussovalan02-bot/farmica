@@ -141,6 +141,22 @@ func layout() -> void:
 		ants[i]["tgt"] = pos - fw * ly + rt * lx
 
 
+## Центр прямоугольника строя (фронт впереди, ряды уходят назад).
+func block_center() -> Vector3:
+	return pos - forward() * depth() / 2.0
+
+
+## Ближайшая к точке p точка прямоугольника строя, по земле.
+func closest_point(p: Vector3) -> Vector3:
+	var c := block_center()
+	var d := p - c
+	var hw := cols() * SP / 2.0
+	var hd := depth() / 2.0
+	var along := clampf(d.dot(forward()), -hd, hd)
+	var across := clampf(d.dot(right()), -hw, hw)
+	return c + forward() * along + right() * across
+
+
 func set_formation(f: String) -> void:
 	form = f
 	layout()
@@ -211,6 +227,6 @@ func refresh_visuals(dt: float, selected: bool) -> void:
 		var r := cols() * SP / 2.0 + 0.8
 		_ring_mesh.top_radius = r
 		_ring_mesh.bottom_radius = r
-		_ring.position = pos - forward() * depth() / 2.0 + Vector3(0, 0.02, 0)
+		_ring.position = block_center() + Vector3(0, 0.02, 0)
 	_flee_label.visible = state == "fleeing"
 	_flee_label.position = pos - forward() * depth() + Vector3(0, 1.6, 0)
