@@ -289,8 +289,8 @@ func refresh() -> void:
 	_obj1.modulate = Color(MUTED, 0.6) if e_stand == 0 else Color.WHITE
 
 
-func set_drag_rect(r: Rect2, show: bool) -> void:
-	_drag.visible = show
+func set_drag_rect(r: Rect2, shown: bool) -> void:
+	_drag.visible = shown
 	_drag.position = r.position
 	_drag.size = r.size
 

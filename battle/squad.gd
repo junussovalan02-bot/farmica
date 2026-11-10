@@ -134,7 +134,8 @@ func layout() -> void:
 	var fw := forward()
 	var rt := right()
 	for i in ants.size():
-		var r := i / c
+		@warning_ignore("integer_division")
+		var r := i / c  # номер ряда, деление целочисленное намеренно
 		var k := i % c
 		var lx := (k - (c - 1) / 2.0) * SP
 		var ly := r * SP  # ряды позади фронта
@@ -166,7 +167,10 @@ func order(p: Vector3, t: Squad) -> void:
 	if not is_alive() or state == "fleeing":
 		return
 	target = t
-	move_to = null if t != null else p
+	if t != null:
+		move_to = null
+	else:
+		move_to = p
 	state = "moving"
 
 
